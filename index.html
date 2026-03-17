@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Simulator</title>
+<style>
+:root{--bg:#0b1020;--panel:#121933;--panel2:#0f1530;--soft:#1a2347;--line:rgba(255,255,255,.08);--text:#e8ecff;--muted:#98a4d3;--accent:#7c9cff;--accent2:#56e0c5;--good:#74f0a7;--radius:20px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#09101f;color:var(--text);min-height:100vh;}
+.app{max-width:1380px;margin:0 auto;padding:24px;}
+.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-bottom:20px;}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 20px 50px rgba(0,0,0,.35);}
+.hero-main{padding:28px 30px;}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:rgba(124,156,255,.1);border:1px solid rgba(124,156,255,.25);color:#c9d4ff;font-size:12px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:16px;}
+h1{font-size:clamp(30px,4vw,52px);line-height:1.03;letter-spacing:-.03em;margin-bottom:10px;}
+.subtitle{color:var(--muted);font-size:15px;line-height:1.65;max-width:68ch;}
+.hero-side{padding:20px;display:flex;flex-direction:column;gap:14px;}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:14px 16px;}
+.stat .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.stat .val{font-size:26px;font-weight:700;letter-spacing:-.03em;}
+.legend{display:flex;flex-wrap:wrap;gap:8px;}
+.pill{padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted);font-size:12px;}
+.layout{display:grid;grid-template-columns:350px 1fr;gap:18px;align-items:start;}
+.controls{padding:22px;position:sticky;top:16px;}
+.controls h2,.workspace h2{margin:0 0 14px;font-size:17px;letter-spacing:-.02em;}
+.sec-title{margin:18px 0 8px;color:#dce3ff;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
+textarea,input[type=text],input[type=number]{width:100%;background:#0b1228;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:12px 14px;outline:none;font:inherit;font-size:13px;transition:.2s border,.2s background;line-height:1.5;}
+textarea{min-height:140px;resize:vertical;}
+textarea:focus,input:focus{border-color:rgba(124,156,255,.5);background:#0c1430;}
+textarea::placeholder,input::placeholder{color:#475569;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+button{border:none;cursor:pointer;border-radius:14px;padding:12px 14px;font:inherit;font-size:13px;font-weight:700;transition:transform .15s,opacity .15s,box-shadow .15s;}
+button:hover{transform:translateY(-1px);}
+button:active{transform:translateY(1px);}
+.primary{background:linear-gradient(135deg,var(--accent),#9d7cff);color:#fff;box-shadow:0 10px 24px rgba(124,156,255,.22);}
+.secondary{background:#101834;color:var(--text);border:1px solid var(--line);}
+.ghost{background:rgba(255,255,255,.03);color:var(--muted);border:1px dashed var(--line);}
+.workspace{padding:22px;}
+.stepper{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:18px;}
+.step{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:13px 11px;min-height:88px;cursor:pointer;transition:.2s border,.2s background;}
+.step:hover{border-color:rgba(124,156,255,.3);}
+.step.active{border-color:rgba(124,156,255,.5);background:rgba(124,156,255,.07);}
+.step.done{border-color:rgba(116,240,167,.35);background:rgba(116,240,167,.04);}
+.step-num{font-size:11px;color:var(--muted);margin-bottom:6px;}
+.step-name{font-size:13px;font-weight:700;line-height:1.2;}
+.step-desc{margin-top:6px;color:var(--muted);font-size:11px;line-height:1.4;}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.panel{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:16px;min-height:220px;max-height:420px;overflow-y:auto;}
+.panel h3{margin:0 0 12px;font-size:15px;letter-spacing:-.02em;}
+.muted{color:var(--muted);}
+.item{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line);margin-bottom:8px;}
+.item:last-child{margin-bottom:0;}
+.item strong{display:block;margin-bottom:5px;font-size:13px;}
+.item p{font-size:13px;color:#c8d4f0;line-height:1.55;}
+.item small{color:var(--muted);display:block;margin-top:5px;font-size:11px;}
+.score-bar{margin-top:8px;height:8px;border-radius:999px;background:#1d274b;overflow:hidden;border:1px solid rgba(255,255,255,.05);}
+.score-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .6s ease;}
+.vector{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;}
+.dim{padding:4px 8px;border-radius:8px;background:#0b1227;border:1px solid var(--line);font-size:11px;color:#cdd7ff;}
+.timeline{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.tl-item{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:start;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:16px;padding:13px;}
+.tag{display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;border-radius:10px;background:#0d1530;border:1px solid var(--line);color:#cfd8ff;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;text-align:center;line-height:1.3;}
+.explain{color:var(--muted);line-height:1.6;font-size:13px;}
+.explain .hl{color:#fff;font-weight:700;}
+.answer-box{background:linear-gradient(180deg,rgba(124,156,255,.08),rgba(86,224,197,.04));border:1px solid rgba(124,156,255,.22);border-radius:18px;padding:18px;}
+.answer-box h3{margin:0 0 10px;font-size:15px;}
+.answer{line-height:1.7;color:#eaf0ff;white-space:pre-wrap;font-size:14px;}
+.footer-note{margin-top:14px;color:var(--muted);font-size:12px;line-height:1.6;padding:12px 14px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:14px;}
+.mini-note{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.55;}
+.empty{color:var(--muted);font-size:13px;padding:8px 0;}
+@media(max-width:1160px){.hero,.layout,.panels{grid-template-columns:1fr}.controls{position:relative;top:0}}
+@media(max-width:860px){.stepper{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:540px){.app{padding:14px}.btn-row,.grid2,.stats{grid-template-columns:1fr}.stepper{grid-template-columns:1fr}h1{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <section class="hero">
+    <div class="card hero-main">
+      <div class="eyebrow">Interactive learning tool</div>
+      <h1>RAG Simulator</h1>
+      <p class="subtitle">Understand Retrieval-Augmented Generation step by step. Add your own documents and query, then run the full pipeline or walk through it one step at a time.</p>
+    </div>
+    <div class="card hero-side">
+      <div class="stats">
+        <div class="stat"><div class="lbl">Pipeline</div><div class="val" id="s-steps">7 Steps</div></div>
+        <div class="stat"><div class="lbl">Docs loaded</div><div class="val" id="s-docs">0</div></div>
+        <div class="stat"><div class="lbl">Chunks</div><div class="val" id="s-chunks">0</div></div>
+        <div class="stat"><div class="lbl">Retrieved</div><div class="val" id="s-retrieved">0</div></div>
+      </div>
+      <div class="legend">
+        <span class="pill">Ingestion</span><span class="pill">Chunking</span><span class="pill">Embeddings</span>
+        <span class="pill">Vector search</span><span class="pill">Retrieval</span><span class="pill">Generation</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="layout">
+    <aside class="card controls">
+      <h2>Controls</h2>
+      <div class="sec-title">Knowledge base documents</div>
+      <textarea id="docsInput" placeholder="Paste your documents here. Separate each document with a blank line."></textarea>
+      <div class="sec-title">User query</div>
+      <input type="text" id="queryInput" placeholder="Ask a question about your documents..." />
+      <div class="grid2" style="margin-top:12px;">
+        <div><div class="sec-title">Chunk size (chars)</div><input type="number" id="chunkSize" min="60" max="500" step="10" value="200" /></div>
+        <div><div class="sec-title">Top-K retrieve</div><input type="number" id="topK" min="1" max="8" step="1" value="3" /></div>
+      </div>
+      <div class="btn-row">
+        <button class="primary" id="runBtn">Run all steps</button>
+        <button class="secondary" id="nextBtn">Next step</button>
+        <button class="secondary" id="sampleBtn">Load samples</button>
+        <button class="ghost" id="resetBtn">Reset</button>
+      </div>
+      <div class="footer-note">
+        Uses real cosine similarity on TF-based keyword vectors. No external APIs needed — runs entirely in your browser.
+      </div>
+    </aside>
+
+    <main class="card workspace">
+      <h2>Pipeline</h2>
+      <div class="stepper" id="stepper"></div>
+      <div class="panels">
+        <div class="panel"><h3>Artifacts</h3><div id="artifacts"><div class="empty">Run the simulator to see documents, chunks, vectors and results here.</div></div></div>
+        <div class="panel"><h3>Explanation</h3><div id="explanation"><div class="empty">Each step will explain what is happening and why it matters.</div></div></div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="answer-box">
+        <h3>Simulated final answer</h3>
+        <div class="answer" id="finalAnswer">No answer yet — run the pipeline first.</div>
+        <div class="mini-note" id="finalNote">The answer appears after retrieval and prompt augmentation.</div>
+      </div>
+    </main>
+  </section>
+</div>
+
+<script>
+const STEPS = [
+  {key:"ingest",   name:"Ingest",       desc:"Collect raw documents"},
+  {key:"chunk",    name:"Chunk",        desc:"Split into small pieces"},
+  {key:"embedDoc", name:"Embed docs",   desc:"Convert chunks to vectors"},
+  {key:"store",    name:"Store/index",  desc:"Save vectors in DB"},
+  {key:"embedQ",   name:"Embed query",  desc:"Vectorise the question"},
+  {key:"retrieve", name:"Retrieve",     desc:"Find similar chunks"},
+  {key:"generate", name:"Generate",     desc:"Augment prompt & answer"}
+];
+
+const VOCAB = [
+  "rag","retrieval","augmented","generation","llm","model","context","prompt","documents","document",
+  "data","source","chunk","chunking","split","embedding","embeddings","vector","vectors","database",
+  "index","search","query","question","similarity","semantic","retrieve","retrieved","token","window",
+  "policy","approval","refund","support","employee","employees","drive","google","hr","onboarding",
+  "access","manager","laptop","customer","guide","external","training","grounded","load","knowledge",
+  "answer","relevant","information","system","text","meaning","space","close","closer","real","step"
+];
+
+const SAMPLES = {
+  docs: `Google Drive policy: Employees can access project files based on team permissions. Sensitive HR files require additional approval from the HR manager.
+
+RAG basics: Retrieval-Augmented Generation helps LLMs answer questions using external documents instead of relying only on training data. Documents are ingested, chunked, embedded, stored in a vector database, retrieved at query time, and added to the prompt as context.
+
+Embedding note: Embeddings convert text into vectors so meaning can be compared numerically. Similar meaning produces vectors that are closer together in embedding space, enabling semantic search.
+
+Chunking note: Good chunking preserves meaning. If chunks are too large, retrieval becomes noisy. If chunks are too small, important context may be split apart and meaning lost.
+
+Customer support SOP: Refund requests over 5000 rupees require manager approval. Damaged product claims must include the order ID and photos of the damage.
+
+Onboarding guide: New hires get Slack, email, and HRMS access on day one. Laptop access is provisioned by the IT team after the manager sends a confirmation request.`,
+  query: "How does RAG reduce load on an LLM and what role do chunking and embeddings play?"
+};
+
+let state = { step:-1, docs:[], chunks:[], queryVec:[], retrieved:[], topK:3, chunkSz:200 };
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function tokenize(t){ return t.toLowerCase().replace(/[^a-z0-9\s]/g," ").split(/\s+/).filter(Boolean); }
+
+function embed(text){
+  const toks = tokenize(text);
+  const freq = {};
+  toks.forEach(t => freq[t]=(freq[t]||0)+1);
+  const total = toks.length || 1;
+  const vec = VOCAB.map(k => {
+    let s = (freq[k]||0)/total;
+    if(k==="embedding"||k==="embeddings") s+=(freq["vector"]||0)/total*0.5+(freq["vectors"]||0)/total*0.5;
+    if(k==="chunk"||k==="chunking") s+=(freq["split"]||0)/total*0.5;
+    if(k==="retrieval"||k==="retrieve"||k==="retrieved") s+=(freq["search"]||0)/total*0.3+(freq["similarity"]||0)/total*0.3;
+    if(k==="llm"||k==="model") s+=(freq["language"]||0)/total*0.3;
+    if(k==="context"||k==="prompt") s+=(freq["window"]||0)/total*0.2+(freq["augmented"]||0)/total*0.3;
+    if(k==="documents"||k==="document") s+=(freq["data"]||0)/total*0.2+(freq["source"]||0)/total*0.2;
+    return Math.min(1, s);
+  });
+  const mag = Math.sqrt(vec.reduce((a,b)=>a+b*b,0)) || 1;
+  return vec.map(v => Math.round(v/mag*1000)/1000);
+}
+
+function cosine(a,b){ let d=0; for(let i=0;i<a.length;i++) d+=a[i]*b[i]; return d; }
+
+function topDims(vec, n=8){
+  return vec.map((v,i)=>({k:VOCAB[i],v})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,n);
+}
+
+function splitDocs(raw){
+  return raw.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean).map((text,i)=>({id:"DOC-"+(i+1),text}));
+}
+
+function chunkDoc(text, sz){
+  const clean = text.replace(/\s+/g," ").trim();
+  const out=[];
+  let start=0;
+  while(start<clean.length){
+    let end=Math.min(start+sz,clean.length);
+    if(end<clean.length){
+      const ps=clean.lastIndexOf(".",end); const ss=clean.lastIndexOf(" ",end);
+      if(ps>start+50) end=ps+1; else if(ss>start+50) end=ss;
+    }
+    const piece=clean.slice(start,end).trim();
+    if(piece) out.push(piece);
+    if(end<=start) break;
+    start=end;
+  }
+  return out;
+}
+
+function prepare(){
+  state.chunkSz = Math.max(60,Math.min(500,+document.getElementById("chunkSize").value||200));
+  state.topK    = Math.max(1,Math.min(8,+document.getElementById("topK").value||3));
+  state.docs    = splitDocs(document.getElementById("docsInput").value);
+  state.query   = document.getElementById("queryInput").value.trim();
+  state.chunks=[];
+  state.docs.forEach(doc=>{
+    chunkDoc(doc.text,state.chunkSz).forEach((text,i)=>{
+      state.chunks.push({id:doc.id+"-CH"+(i+1),docId:doc.id,text,vec:[],score:0});
+    });
+  });
+  state.queryVec=[]; state.retrieved=[];
+  document.getElementById("timeline").innerHTML="";
+  document.getElementById("finalAnswer").textContent="No answer yet.";
+  document.getElementById("finalNote").textContent="The answer appears after retrieval and prompt augmentation.";
+  updateStats();
+}
+
+function updateStats(){
+  document.getElementById("s-docs").textContent     = state.docs.length;
+  document.getElementById("s-chunks").textContent   = state.chunks.length;
+  document.getElementById("s-retrieved").textContent= state.retrieved.length;
+}
+
+function renderStepper(){
+  const el=document.getElementById("stepper");
+  el.innerHTML="";
+  STEPS.forEach((s,i)=>{
+    const d=document.createElement("div");
+    d.className="step"+(i===state.step?" active":"")+(i<state.step?" done":"");
+    d.innerHTML="<div class='step-num'>Step "+(i+1)+"</div><div class='step-name'>"+s.name+"</div><div class='step-desc'>"+s.desc+"</div>";
+    d.onclick=()=>{ if(state.docs.length) jumpTo(i); };
+    el.appendChild(d);
+  });
+}
+
+function setArtifacts(html){ document.getElementById("artifacts").innerHTML=html; }
+function setExplanation(tag,body){ document.getElementById("explanation").innerHTML="<div class='tl-item' style='border:none;background:transparent;padding:0'><div class='tag'>"+tag+"</div><div class='explain'>"+body+"</div></div>"; }
+function addTimeline(tag,body){ const d=document.createElement("div"); d.className="tl-item"; d.innerHTML="<div class='tag'>"+tag+"</div><div class='explain'>"+body+"</div>"; document.getElementById("timeline").appendChild(d); }
+
+function doStep(i){
+  state.step=i;
+  renderStepper();
+
+  if(i===0){
+    setArtifacts(state.docs.map(d=>"<div class='item'><strong>"+d.id+"</strong><p>"+esc(d.text)+"</p><small>"+d.text.length+" chars</small></div>").join(""));
+    setExplanation("Ingest","Raw documents are collected from files, databases, Google Drive, or APIs and converted to plain text. In a real system this includes PDF parsing, OCR, and metadata extraction.");
+    addTimeline("Ingest","Loaded <span class='hl'>"+state.docs.length+"</span> source documents into the knowledge base.");
+    updateStats();
+  }
+
+  if(i===1){
+    setArtifacts(state.chunks.map(c=>"<div class='item'><strong>"+c.id+" <span class='muted'>from "+c.docId+"</span></strong><p>"+esc(c.text)+"</p><small>"+c.text.length+" chars</small></div>").join(""));
+    setExplanation("Chunk","Long documents are split into smaller chunks so retrieval can be precise. Chunks must be small enough to stay focused but large enough to preserve meaning. Current target: <strong>"+state.chunkSz+" chars</strong>.");
+    addTimeline("Chunk","Split into <span class='hl'>"+state.chunks.length+"</span> chunks (target size: "+state.chunkSz+" chars each).");
+    updateStats();
+  }
+
+  if(i===2){
+    state.chunks=state.chunks.map(c=>({...c,vec:embed(c.text)}));
+    setArtifacts(state.chunks.map(c=>{
+      const dims=topDims(c.vec,7);
+      return "<div class='item'><strong>"+c.id+"</strong><p>"+esc(c.text.slice(0,90))+(c.text.length>90?"…":"")+"</p><div class='vector'>"+
+        (dims.length?dims.map(d=>"<span class='dim'>"+d.k+": "+d.v+"</span>").join(""):"<span class='dim'>no signals</span>")+
+        "</div></div>";
+    }).join(""));
+    setExplanation("Embed docs","Each chunk is converted to a vector using keyword frequency and semantic boosting. Real systems use neural embedding models (OpenAI, Gemini, etc.) that understand deeper meaning. The goal: similar chunks produce similar vectors.");
+    addTimeline("Embed docs","Generated vectors for all <span class='hl'>"+state.chunks.length+"</span> chunks.");
+  }
+
+  if(i===3){
+    setArtifacts("<div class='item'><strong>Vector index</strong><p>"+state.chunks.length+" chunk vectors stored and ready for similarity search.</p><small>In production: Pinecone, Weaviate, Chroma, pgvector, Qdrant</small></div>"+
+      state.chunks.slice(0,4).map(c=>"<div class='item'><strong>"+c.id+"</strong><div class='vector'>"+topDims(c.vec,5).map(d=>"<span class='dim'>"+d.k+": "+d.v+"</span>").join("")+"</div></div>").join(""));
+    setExplanation("Store/index","Vectors are stored in a vector database so retrieval is fast. Real systems use approximate nearest-neighbor indexes (HNSW, IVF) to search millions of vectors in milliseconds without brute-force comparison.");
+    addTimeline("Store","Indexed <span class='hl'>"+state.chunks.length+"</span> chunk vectors into the vector store.");
+  }
+
+  if(i===4){
+    state.queryVec=embed(state.query);
+    const dims=topDims(state.queryVec,10);
+    setArtifacts("<div class='item'><strong>User query</strong><p>"+esc(state.query)+"</p><div class='vector'>"+dims.map(d=>"<span class='dim'>"+d.k+": "+d.v+"</span>").join("")+"</div></div>");
+    setExplanation("Embed query","The user question is embedded using the <strong>same</strong> model and vector space as the documents. This is critical — if the query and documents live in the same space, cosine similarity can measure how semantically close they are.");
+    addTimeline("Embed query","Query converted to a vector with <span class='hl'>"+dims.length+"</span> active dimensions.");
+  }
+
+  if(i===5){
+    const scored=state.chunks.map(c=>({...c,score:cosine(state.queryVec,c.vec)})).sort((a,b)=>b.score-a.score);
+    state.retrieved=scored.slice(0,state.topK);
+    const maxScore=scored[0]?.score||1;
+    setArtifacts("<div style='margin-bottom:8px;font-size:12px;color:var(--muted)'>All chunks ranked by cosine similarity:</div>"+
+      scored.slice(0,Math.min(8,scored.length)).map((c,idx)=>{
+        const pct=Math.max(3,Math.round((c.score/maxScore)*100));
+        const isRet=idx<state.topK;
+        return "<div class='item' style='"+(isRet?"border-color:rgba(116,240,167,.35);background:rgba(116,240,167,.04)":"opacity:.6")+"'><strong>"+(isRet?"✓ ":"")+c.id+" <span class='muted'>from "+c.docId+"</span></strong><p>"+esc(c.text.slice(0,80))+(c.text.length>80?"…":"")+"</p><small>Similarity: "+(c.score*100).toFixed(1)+"% "+(isRet?"← RETRIEVED":"")+
+        "</small><div class='score-bar'><div class='score-fill' style='width:"+pct+"%'></div></div></div>";
+      }).join(""));
+    setExplanation("Retrieve","Cosine similarity is computed between the query vector and every chunk vector. The top-<strong>"+state.topK+"</strong> matches are selected. Only these chunks will be passed to the LLM — not the whole knowledge base.");
+    addTimeline("Retrieve","Retrieved top <span class='hl'>"+state.retrieved.length+"</span> chunks with highest similarity to the query.");
+    updateStats();
+  }
+
+  if(i===6){
+    const contextHtml=state.retrieved.map((r,i)=>"<div class='item'><strong>Context "+(i+1)+" — "+r.id+"</strong><p>"+esc(r.text)+"</p><small>Similarity: "+(r.score*100).toFixed(1)+"%</small></div>").join("");
+    setArtifacts("<div class='item' style='margin-bottom:8px'><strong>Augmented prompt sent to LLM:</strong><p style='color:var(--muted)'>SYSTEM: Answer using only the context below.<br><br>CONTEXT:<br>"+state.retrieved.map((r,i)=>"["+( i+1)+"]: "+esc(r.text)).join("<br><br>")+"<br><br>QUESTION: "+esc(state.query)+"</p></div>"+contextHtml);
+    const answer=generateAnswer(state.query,state.retrieved);
+    setExplanation("Generate","Retrieved chunks are inserted into the prompt. The LLM sees only the selected evidence, not your entire knowledge base. This is why RAG reduces context load — the model works with a small, relevant slice of your data.");
+    addTimeline("Generate","Built augmented prompt with <span class='hl'>"+state.retrieved.length+"</span> context chunk(s), then generated a grounded response.");
+    typeAnswer(answer);
+    document.getElementById("finalNote").textContent="Prompt included "+state.retrieved.length+" retrieved chunk(s). The LLM sees only these relevant pieces — not your full knowledge base.";
+    updateStats();
+  }
+}
+
+function typeAnswer(text){
+  const el=document.getElementById("finalAnswer");
+  el.textContent="";
+  let i=0;
+  const iv=setInterval(()=>{
+    el.textContent=text.slice(0,i)+(i<text.length?"▋":"");
+    i++;
+    if(i>text.length){ el.textContent=text; clearInterval(iv); }
+  },16);
+}
+
+function generateAnswer(query, retrieved){
+  if(!retrieved.length) return "No chunks were retrieved. The system has no grounded context to answer from. Try adding more relevant documents or lowering the chunk size.";
+  const joined=retrieved.map(r=>r.text).join(" ").toLowerCase();
+  const q=query.toLowerCase();
+  const parts=[];
+  if(/rag|retrieval/.test(joined)||/rag/.test(q))
+    parts.push("RAG reduces load on an LLM by retrieving only the most relevant document chunks at query time, instead of sending the entire knowledge base into the context window.");
+  if(/chunk/.test(joined)||/chunk/.test(q))
+    parts.push("Chunking splits documents into small focused pieces so retrieval can pinpoint the exact section that answers the question, rather than returning entire documents with noise.");
+  if(/embed|vector/.test(joined)||/embed|vector/.test(q))
+    parts.push("Embeddings convert both the chunks and the user query into vectors in a shared semantic space. Cosine similarity then finds the chunks whose meaning is closest to the query — even when the wording differs.");
+  if(/context|prompt|window|load/.test(joined)||/load|context/.test(q))
+    parts.push("After retrieval, only the top matching chunks are added to the prompt. The LLM receives targeted evidence rather than carrying the whole dataset in its context window, keeping cost and latency low.");
+  if(!parts.length)
+    parts.push("Based on the retrieved context: "+retrieved[0].text.slice(0,200)+(retrieved[0].text.length>200?"…":""));
+  parts.push("(This simulator uses TF-based cosine similarity. In production, a neural embedding model like text-embedding-ada-002 provides far richer semantic understanding.)");
+  return parts.join("\n\n");
+}
+
+function jumpTo(target){
+  if(state.step===-1){ prepare(); document.getElementById("timeline").innerHTML=""; }
+  const start=Math.max(0,state.step+1);
+  if(target<start){ prepare(); document.getElementById("timeline").innerHTML=""; for(let i=0;i<=target;i++) doStep(i); return; }
+  for(let i=start;i<=target;i++) doStep(i);
+}
+
+function runAll(){
+  prepare();
+  document.getElementById("timeline").innerHTML="";
+  for(let i=0;i<STEPS.length;i++) doStep(i);
+}
+
+function nextStep(){
+  if(state.step===-1) prepare();
+  if(state.step>=STEPS.length-1) return;
+  doStep(state.step+1);
+}
+
+function resetAll(){
+  state={step:-1,docs:[],chunks:[],queryVec:[],retrieved:[],topK:3,chunkSz:200};
+  document.getElementById("timeline").innerHTML="";
+  document.getElementById("finalAnswer").textContent="No answer yet — run the pipeline first.";
+  document.getElementById("finalNote").textContent="The answer appears after retrieval and prompt augmentation.";
+  document.getElementById("artifacts").innerHTML="<div class='empty'>Run the simulator to see documents, chunks, vectors and results here.</div>";
+  document.getElementById("explanation").innerHTML="<div class='empty'>Each step will explain what is happening and why it matters.</div>";
+  updateStats();
+  renderStepper();
+}
+
+document.getElementById("runBtn").onclick=runAll;
+document.getElementById("nextBtn").onclick=nextStep;
+document.getElementById("resetBtn").onclick=resetAll;
+document.getElementById("sampleBtn").onclick=()=>{
+  document.getElementById("docsInput").value=SAMPLES.docs;
+  document.getElementById("queryInput").value=SAMPLES.query;
+  document.getElementById("chunkSize").value=200;
+  document.getElementById("topK").value=3;
+  resetAll();
+};
+document.getElementById("queryInput").addEventListener("keydown",e=>{ if(e.key==="Enter") runAll(); });
+
+resetAll();
+</script>
+</body>
+</html>
