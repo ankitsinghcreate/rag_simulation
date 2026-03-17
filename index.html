@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Pipeline Simulator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a1a; min-height: 100vh; }
+  header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header span { font-size: 12px; background: #EEF2FF; color: #3730a3; padding: 3px 10px; border-radius: 20px; }
+  .container { max-width: 860px; margin: 0 auto; padding: 32px 20px; }
+  .progress-wrap { margin-bottom: 28px; }
+  .progress-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+  .progress-bar { height: 4px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #3b82f6; border-radius: 4px; transition: width 0.4s; }
+  .pipeline { display: flex; align-items: center; gap: 0; margin-bottom: 28px; overflow-x: auto; padding: 4px 0 8px; }
+  .node { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; min-width: 88px; }
+  .circle { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #9ca3af; background: #fff; transition: all 0.25s; }
+  .node.active .circle { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+  .node.done .circle { border-color: #10b981; background: #ecfdf5; color: #065f46; }
+  .node-label { font-size: 11px; color: #9ca3af; text-align: center; max-width: 76px; line-height: 1.3; }
+  .node.active .node-label { color: #1d4ed8; font-weight: 500; }
+  .node.done .node-label { color: #065f46; }
+  .conn { flex: 1; height: 2px; background: #e5e7eb; min-width: 12px; transition: background 0.3s; }
+  .conn.done { background: #6ee7b7; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; min-height: 320px; }
+  .card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 3px; }
+  .card-sub { font-size: 13px; color: #6b7280; }
+  .insight { font-size: 12px; color: #4b5563; background: #f0f9ff; border-left: 3px solid #93c5fd; border-radius: 0 6px 6px 0; padding: 8px 12px; margin-top: 14px; line-height: 1.6; }
+  .doc-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .doc-pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; padding: 7px 12px; font-size: 12px; color: #374151; display: flex; align-items: center; gap: 6px; }
+  .chunk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 10px; }
+  .chunk { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 9px 11px; font-size: 11px; color: #1e40af; line-height: 1.5; }
+  .chunk strong { display: block; margin-bottom: 3px; }
+  .embed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 10px; }
+  .embed-card { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 9px 11px; }
+  .embed-lbl { font-size: 11px; color: #065f46; font-weight: 600; margin-bottom: 5px; }
+  .bars { display: flex; gap: 2px; align-items: flex-end; }
+  .bar { background: #059669; border-radius: 2px 2px 0 0; width: 10px; }
+  .vec-txt { font-size: 10px; color: #065f46; margin-top: 4px; }
+  .db-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .db-box { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; }
+  .db-title { font-size: 13px; font-weight: 600; color: #92400e; margin-bottom: 8px; text-align: center; }
+  .db-row { background: #f59e0b; border-radius: 3px; height: 8px; margin-bottom: 4px; opacity: 0.5; }
+  .db-meta { font-size: 11px; color: #92400e; margin-top: 6px; text-align: center; }
+  .db-info { background: #f3f4f6; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #4b5563; }
+  .db-info strong { display: block; font-size: 13px; color: #111827; margin-bottom: 6px; }
+  .db-info div { margin-bottom: 3px; }
+  .query-bubble { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-size: 13px; color: #1e40af; max-width: 85%; margin: 10px 0; }
+  .vec-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .vec-label { font-size: 12px; color: #6b7280; }
+  .vec-bars { display: flex; gap: 3px; align-items: flex-end; }
+  .vb { width: 9px; background: #3b82f6; border-radius: 2px 2px 0 0; }
+  .match-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .match-row { display: flex; align-items: center; gap: 10px; }
+  .match-chunk { flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 7px 10px; font-size: 11px; color: #1e40af; }
+  .match-chunk strong { display: block; margin-bottom: 2px; }
+  .score { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
+  .score-h { background: #ecfdf5; color: #065f46; }
+  .score-m { background: #fffbeb; color: #92400e; }
+  .score-l { background: #f3f4f6; color: #6b7280; }
+  .prompt-box { background: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #4c1d95; margin-top: 10px; line-height: 1.7; }
+  .prompt-box strong { color: #7c3aed; }
+  .answer-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; margin-top: 12px; }
+  .answer-meta { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+  .badge { display: inline-block; background: #ecfdf5; color: #065f46; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-right: 4px; }
+  .answer-txt { font-size: 13px; color: #111827; line-height: 1.65; }
+  .nav { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  button { font-family: inherit; font-size: 13px; padding: 9px 20px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #374151; cursor: pointer; transition: background 0.15s; }
+  button:hover { background: #f3f4f6; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .btn-primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  .btn-primary:hover { background: #2563eb; }
+  p.desc { font-size: 13px; color: #6b7280; margin-bottom: 10px; line-height: 1.65; }
+  .scores-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:26px">🧠</div>
+  <h1>RAG Pipeline Simulator</h1>
+  <span>Retrieval Augmented Generation</span>
+</header>
+
+<div class="container">
+  <div class="progress-wrap">
+    <div class="progress-label" id="prog-label">Step 1 of 7 — Data Ingestion</div>
+    <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:14%"></div></div>
+  </div>
+  <div class="pipeline" id="pipeline"></div>
+  <div class="card" id="panel"></div>
+  <div class="nav">
+    <button id="btn-prev" onclick="nav(-1)">← Previous</button>
+    <button class="btn-primary" id="btn-next" onclick="nav(1)">Next →</button>
+  </div>
+</div>
+
+<script>
+const steps = [
+  {
+    label: 'Data Ingestion', icon: '📂', iconBg: '#eff6ff',
+    title: 'Step 1 — Data Ingestion',
+    sub: 'Gather all raw data from various sources into one place',
+    html: `
+      <p class="desc">You collect documents from different sources — PDFs, CSVs, websites, emails. These become the private knowledge base your LLM will draw from. Without this, the LLM only knows what it was trained on (public internet data).</p>
+      <div class="doc-grid">
+        <div class="doc-pill">📄 company-policy.pdf</div>
+        <div class="doc-pill">📊 sales-data.csv</div>
+        <div class="doc-pill">📝 meeting-notes.txt</div>
+        <div class="doc-pill">🌐 internal-wiki.html</div>
+        <div class="doc-pill">📧 email-archive.mbox</div>
+        <div class="doc-pill">📁 G Drive folder</div>
+      </div>
+      <div class="insight">💡 All file types get converted to plain text so everything is in a consistent format before the next step.</div>`
+  },
+  {
+    label: 'Chunking', icon: '✂️', iconBg: '#f5f3ff',
+    title: 'Step 2 — Chunking',
+    sub: 'Split large documents into smaller, meaningful pieces',
+    html: `
+      <p class="desc">One giant document becomes many small chunks. LLMs have context window limits — you can't dump an entire knowledge base into a prompt. Chunking means only the relevant pieces get sent to the LLM.</p>
+      <div class="chunk-grid">
+        <div class="chunk"><strong>Chunk 1</strong>Refund policy applies within 30 days of purchase for all customers...</div>
+        <div class="chunk"><strong>Chunk 2</strong>Q3 revenue grew by 14% driven by enterprise deals in APAC...</div>
+        <div class="chunk"><strong>Chunk 3</strong>The onboarding process begins with email verification and role setup...</div>
+        <div class="chunk"><strong>Chunk 4</strong>Team leads must approve budget requests over $500 in writing...</div>
+        <div class="chunk"><strong>Chunk 5</strong>Customer support SLA guarantees 4-hour response for P1 tickets...</div>
+        <div class="chunk"><strong>Chunk 6</strong>Product roadmap includes SSO in Q1 and API v2 in Q2 2025...</div>
+      </div>
+      <div class="insight">💡 Ideal chunk size is 256–512 tokens. Too small = lost context. Too large = noise. Adding 50-token overlap between chunks helps preserve meaning at boundaries.</div>`
+  },
+  {
+    label: 'Embedding', icon: '🔢', iconBg: '#ecfdf5',
+    title: 'Step 3 — Embedding',
+    sub: 'Convert each chunk into a vector of numbers that captures meaning',
+    html: `
+      <p class="desc">An embedding model (like OpenAI's text-embedding-ada-002 or Gemini's embedding API) converts each text chunk into a high-dimensional vector. Similar meanings produce similar vectors — this is what makes semantic search possible.</p>
+      <div class="embed-grid">
+        <div class="embed-card"><div class="embed-lbl">Chunk 1 — refunds</div><div class="bars"><div class="bar" style="height:18px"></div><div class="bar" style="height:8px"></div><div class="bar" style="height:14px"></div><div class="bar" style="height:5px"></div><div class="bar" style="height:16px"></div><div class="bar" style="height:10px"></div></div><div class="vec-txt">[0.87, 0.41, 0.76, 0.19...]</div></div>
+        <div class="embed-card"><div class="embed-lbl">Chunk 2 — revenue</div><div class="bars"><div class="bar" style="height:6px"></div><div class="bar" style="height:16px"></div><div class="bar" style="height:4px"></div><div class="bar" style="height:18px"></div><div class="bar" style="height:8px"></div><div class="bar" style="height:12px"></div></div><div class="vec-txt">[0.31, 0.82, 0.19, 0.93...]</div></div>
+        <div class="embed-card"><div class="embed-lbl">Chunk 3 — onboarding</div><div class="bars"><div class="bar" style="height:12px"></div><div class="bar" style="height:6px"></div><div class="bar" style="height:18px"></div><div class="bar" style="height:8px"></div><div class="bar" style="height:14px"></div><div class="bar" style="height:4px"></div></div><div class="vec-txt">[0.62, 0.28, 0.91, 0.44...]</div></div>
+        <div class="embed-card"><div class="embed-lbl">Chunk 5 — SLA</div><div class="bars"><div class="bar" style="height:16px"></div><div class="bar" style="height:10px"></div><div class="bar" style="height:12px"></div><div class="bar" style="height:6px"></div><div class="bar" style="height:18px"></div><div class="bar" style="height:9px"></div></div><div class="vec-txt">[0.78, 0.52, 0.61, 0.33...]</div></div>
+      </div>
+      <div class="insight">💡 Ada-002 produces 1536-dimensional vectors. You can't read them, but cosine similarity between two vectors instantly tells you how semantically close they are.</div>`
+  },
+  {
+    label: 'Vector DB', icon: '🗄️', iconBg: '#fffbeb',
+    title: 'Step 4 — Vector Database',
+    sub: 'Store all chunk embeddings in a searchable vector index',
+    html: `
+      <p class="desc">All your chunk embeddings get stored in a vector database — tools like Pinecone, Weaviate, Chroma, or pgvector. This enables millisecond-speed similarity search across millions of chunks.</p>
+      <div class="db-grid">
+        <div class="db-box">
+          <div class="db-title">🗃️ Vector Index</div>
+          <div class="db-row" style="width:90%"></div>
+          <div class="db-row" style="width:75%"></div>
+          <div class="db-row" style="width:85%"></div>
+          <div class="db-row" style="width:60%"></div>
+          <div class="db-row" style="width:80%"></div>
+          <div class="db-row" style="width:70%"></div>
+          <div class="db-meta">6 chunks indexed ✓</div>
+        </div>
+        <div class="db-info">
+          <strong>Each record stores:</strong>
+          <div>· The chunk text</div>
+          <div>· Its embedding vector</div>
+          <div>· Source document name</div>
+          <div>· Chunk ID &amp; metadata</div>
+          <br>
+          <div style="font-size:11px;color:#9ca3af">Popular: Pinecone, Weaviate, Chroma, pgvector, Qdrant</div>
+        </div>
+      </div>
+      <div class="insight">💡 Steps 1–4 are a one-time setup (re-run when data changes). Steps 5–7 happen live every single time a user asks a question.</div>`
+  },
+  {
+    label: 'Query', icon: '💬', iconBg: '#eff6ff',
+    title: 'Step 5 — User Query',
+    sub: 'A user asks a question — it gets embedded using the same model',
+    html: `
+      <p class="desc">When a user asks something, the exact same embedding model from Step 3 converts that query into a vector. This puts the query in the same "meaning space" as your stored chunks.</p>
+      <div style="font-size:12px;color:#6b7280;margin-top:8px;">User asks:</div>
+      <div class="query-bubble">"What is our refund policy for enterprise customers?"</div>
+      <div class="vec-row">
+        <span class="vec-label">→ Query vector:</span>
+        <div class="vec-bars">
+          <div class="vb" style="height:18px"></div>
+          <div class="vb" style="height:12px"></div>
+          <div class="vb" style="height:16px"></div>
+          <div class="vb" style="height:8px"></div>
+          <div class="vb" style="height:20px"></div>
+          <div class="vb" style="height:10px"></div>
+          <div class="vb" style="height:15px"></div>
+          <div class="vb" style="height:7px"></div>
+        </div>
+        <span style="font-size:11px;color:#6b7280">[0.85, 0.38, 0.79, 0.22...]</span>
+      </div>
+      <div class="insight">💡 The query vector will be geometrically close to chunk vectors that discuss similar topics. This is semantic search — it understands meaning, not just keywords.</div>`
+  },
+  {
+    label: 'Retrieval', icon: '🔍', iconBg: '#ecfdf5',
+    title: 'Step 6 — Retrieval (Similarity Search)',
+    sub: 'Find the most relevant chunks using cosine similarity',
+    html: `
+      <p class="desc">The query vector is compared against all stored chunk vectors using cosine similarity. The top-k closest chunks (usually 3–5) are pulled from the database and passed to the LLM.</p>
+      <div class="match-list">
+        <div class="scores-label">Cosine similarity scores (1.0 = identical meaning):</div>
+        <div class="match-row">
+          <div class="match-chunk"><strong>Chunk 1</strong>"Refund policy applies within 30 days of purchase..."</div>
+          <div class="score score-h">0.94 ✓ retrieved</div>
+        </div>
+        <div class="match-row">
+          <div class="match-chunk"><strong>Chunk 5</strong>"Customer support SLA is 4 hours for P1 tickets..."</div>
+          <div class="score score-m">0.71 ✓ retrieved</div>
+        </div>
+        <div class="match-row">
+          <div class="match-chunk"><strong>Chunk 3</strong>"Onboarding begins with email verification..."</div>
+          <div class="score score-l">0.38 ✗ skipped</div>
+        </div>
+        <div class="match-row">
+          <div class="match-chunk"><strong>Chunk 2</strong>"Q3 revenue grew by 14% in APAC..."</div>
+          <div class="score score-l">0.21 ✗ skipped</div>
+        </div>
+      </div>
+      <div class="insight">💡 The LLM never sees all your data — only the 2–5 most relevant chunks. This keeps costs low, latency fast, and answers precise.</div>`
+  },
+  {
+    label: 'Generation', icon: '✨', iconBg: '#f5f3ff',
+    title: 'Step 7 — Augmented Generation',
+    sub: 'LLM generates a grounded answer using retrieved chunks as context',
+    html: `
+      <p class="desc">The retrieved chunks are injected into the LLM prompt alongside the original question. The LLM generates an answer grounded in your actual data — not just its training knowledge. This is the "augmented" part of RAG.</p>
+      <div class="prompt-box">
+        <strong>Prompt sent to LLM:</strong><br><br>
+        You are a helpful assistant. Use only the context below to answer. If the answer isn't in the context, say so.<br><br>
+        <strong>Context:</strong><br>
+        [Chunk 1: Refund policy applies within 30 days...]<br>
+        [Chunk 5: Customer support SLA is 4 hours for P1...]<br><br>
+        <strong>Question:</strong> What is our refund policy for enterprise customers?
+      </div>
+      <div class="answer-box">
+        <div class="answer-meta">LLM response <span class="badge">grounded</span><span class="badge">no hallucination</span></div>
+        <div class="answer-txt">"Enterprise customers are eligible for a full refund within 30 days of purchase. For any issues, our support team guarantees a 4-hour response time for priority tickets. For requests beyond 30 days, please contact your dedicated account manager."</div>
+      </div>
+      <div class="insight">💡 That's RAG — Retrieval Augmented Generation. Private data + LLM reasoning power, with no fine-tuning required.</div>`
+  }
+];
+
+let cur = 0;
+
+function renderPipeline() {
+  document.getElementById('pipeline').innerHTML = steps.map((s, i) =>
+    (i > 0 ? `<div class="conn ${i <= cur ? 'done' : ''}"></div>` : '') +
+    `<div class="node ${i < cur ? 'done' : i === cur ? 'active' : ''}" onclick="goTo(${i})">
+      <div class="circle">${i < cur ? '✓' : i + 1}</div>
+      <div class="node-label">${s.label}</div>
+    </div>`
+  ).join('');
+}
+
+function renderPanel() {
+  const s = steps[cur];
+  document.getElementById('panel').innerHTML = `
+    <div class="card-head">
+      <div class="card-icon" style="background:${s.iconBg}">${s.icon}</div>
+      <div><div class="card-title">${s.title}</div><div class="card-sub">${s.sub}</div></div>
+    </div>
+    ${s.html}`;
+  const pct = Math.round(((cur + 1) / steps.length) * 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = `Step ${cur + 1} of ${steps.length} — ${s.label}`;
+  document.getElementById('btn-prev').disabled = cur === 0;
+  document.getElementById('btn-next').textContent = cur === steps.length - 1 ? '✓ Complete' : 'Next →';
+  document.getElementById('btn-next').disabled = cur === steps.length - 1;
+}
+
+function nav(d) { cur = Math.max(0, Math.min(steps.length - 1, cur + d)); renderPipeline(); renderPanel(); }
+function goTo(i) { cur = i; renderPipeline(); renderPanel(); }
+
+renderPipeline();
+renderPanel();
+</script>
+</body>
+</html>
