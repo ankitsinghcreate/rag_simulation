@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Simulator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { padding: 20px 28px; border-bottom: 1px solid #1e2330; display: flex; align-items: center; gap: 12px; background: #0f1117; }
+  header h1 { font-size: 17px; font-weight: 600; color: #f1f5f9; }
+  .badge { font-size: 11px; background: #1e3a5f; color: #60a5fa; padding: 3px 10px; border-radius: 20px; }
+  .badge-green { background: #14532d; color: #4ade80; }
+
+  .layout { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 61px); }
+
+  .sidebar { border-right: 1px solid #1e2330; display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-section { padding: 16px 18px; border-bottom: 1px solid #1e2330; }
+  .sidebar-section h2 { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  .doc-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+  .doc-item { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #94a3b8; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; cursor: pointer; transition: border-color 0.15s; }
+  .doc-item:hover { border-color: #3b82f6; color: #e2e8f0; }
+  .doc-item .doc-text { flex: 1; line-height: 1.5; }
+  .doc-item .del { color: #475569; font-size: 14px; cursor: pointer; flex-shrink: 0; padding: 0 2px; }
+  .doc-item .del:hover { color: #ef4444; }
+
+  .add-doc-area { display: flex; flex-direction: column; gap: 6px; }
+  textarea { width: 100%; background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; color: #e2e8f0; font-family: inherit; font-size: 12px; padding: 8px 10px; resize: none; outline: none; line-height: 1.5; }
+  textarea:focus { border-color: #3b82f6; }
+  textarea::placeholder { color: #475569; }
+
+  .btn { font-family: inherit; font-size: 12px; padding: 7px 14px; border-radius: 7px; cursor: pointer; border: none; font-weight: 500; transition: all 0.15s; }
+  .btn-blue { background: #3b82f6; color: #fff; }
+  .btn-blue:hover { background: #2563eb; }
+  .btn-outline { background: transparent; border: 1px solid #2d3748; color: #94a3b8; }
+  .btn-outline:hover { border-color: #64748b; color: #e2e8f0; }
+  .btn-green { background: #16a34a; color: #fff; font-size: 13px; padding: 9px 20px; }
+  .btn-green:hover { background: #15803d; }
+  .btn-row { display: flex; gap: 8px; }
+
+  .query-area { padding: 16px 18px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .query-area h2 { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+  .query-input { display: flex; gap: 8px; }
+  .query-input input { flex: 1; background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; color: #e2e8f0; font-family: inherit; font-size: 13px; padding: 9px 12px; outline: none; }
+  .query-input input:focus { border-color: #3b82f6; }
+  .query-input input::placeholder { color: #475569; }
+
+  .main { overflow-y: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+
+  .pipeline-vis { display: flex; align-items: center; gap: 0; margin-bottom: 4px; overflow-x: auto; padding: 4px 0; }
+  .pipe-node { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 80px; }
+  .pipe-circle { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #2d3748; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #475569; background: #1a1f2e; transition: all 0.4s; }
+  .pipe-node.active .pipe-circle { border-color: #3b82f6; background: #1e3a5f; color: #60a5fa; }
+  .pipe-node.done .pipe-circle { border-color: #16a34a; background: #14532d; color: #4ade80; }
+  .pipe-lbl { font-size: 10px; color: #475569; text-align: center; }
+  .pipe-node.active .pipe-lbl { color: #60a5fa; }
+  .pipe-node.done .pipe-lbl { color: #4ade80; }
+  .pipe-conn { flex: 1; height: 2px; background: #2d3748; min-width: 10px; transition: background 0.4s; }
+  .pipe-conn.done { background: #16a34a; }
+
+  .section-card { background: #13161f; border: 1px solid #1e2330; border-radius: 12px; padding: 18px 20px; }
+  .section-card h3 { font-size: 13px; font-weight: 600; color: #f1f5f9; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .step-badge { font-size: 10px; font-weight: 600; background: #1e3a5f; color: #60a5fa; padding: 2px 8px; border-radius: 10px; }
+  .step-badge.green { background: #14532d; color: #4ade80; }
+
+  .chunks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .chunk-card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; padding: 10px 12px; }
+  .chunk-card .chunk-id { font-size: 10px; color: #64748b; margin-bottom: 4px; font-weight: 600; }
+  .chunk-card .chunk-text { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+  .chunk-card.highlighted { border-color: #3b82f6; background: #1e3a5f; }
+  .chunk-card.highlighted .chunk-text { color: #bfdbfe; }
+
+  .embed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .embed-card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; padding: 10px 12px; }
+  .embed-card .embed-id { font-size: 10px; color: #64748b; margin-bottom: 6px; font-weight: 600; }
+  .embed-bars { display: flex; gap: 2px; align-items: flex-end; height: 28px; }
+  .ebar { border-radius: 2px 2px 0 0; background: #3b82f6; opacity: 0.7; flex: 1; transition: all 0.3s; }
+  .embed-vec { font-size: 10px; color: #475569; margin-top: 5px; font-family: monospace; }
+
+  .similarity-list { display: flex; flex-direction: column; gap: 8px; }
+  .sim-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; transition: border-color 0.3s; }
+  .sim-row.retrieved { border-color: #16a34a; background: #0d2318; }
+  .sim-row.rejected { opacity: 0.5; }
+  .sim-text { flex: 1; font-size: 12px; color: #94a3b8; line-height: 1.4; }
+  .sim-row.retrieved .sim-text { color: #86efac; }
+  .sim-bar-wrap { width: 120px; }
+  .sim-bar-bg { height: 6px; background: #2d3748; border-radius: 3px; overflow: hidden; }
+  .sim-bar-fill { height: 100%; border-radius: 3px; background: #3b82f6; transition: width 0.5s; }
+  .sim-row.retrieved .sim-bar-fill { background: #16a34a; }
+  .sim-score { font-size: 12px; font-weight: 600; color: #64748b; min-width: 36px; text-align: right; }
+  .sim-row.retrieved .sim-score { color: #4ade80; }
+  .sim-tag { font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+  .tag-ret { background: #14532d; color: #4ade80; }
+  .tag-skip { background: #1e2330; color: #475569; }
+
+  .prompt-box { background: #1a1f2e; border: 1px solid #7c3aed; border-radius: 8px; padding: 14px 16px; font-size: 12px; color: #c4b5fd; line-height: 1.7; font-family: monospace; white-space: pre-wrap; }
+  .prompt-box .ph { color: #7c3aed; }
+  .prompt-box .pc { color: #86efac; }
+  .prompt-box .pq { color: #60a5fa; }
+
+  .answer-box { background: #0d2318; border: 1px solid #16a34a; border-radius: 10px; padding: 16px 18px; }
+  .answer-meta { font-size: 11px; color: #64748b; margin-bottom: 8px; display: flex; gap: 6px; }
+  .answer-text { font-size: 14px; color: #f1f5f9; line-height: 1.7; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: #475569; }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .anim-pulse { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .typing { display: inline-block; }
+  .typing::after { content: '▋'; animation: blink 0.8s step-end infinite; }
+  @keyframes blink { 50%{opacity:0} }
+
+  .info-row { font-size: 12px; color: #64748b; padding: 8px 0; border-top: 1px solid #1e2330; margin-top: 10px; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:22px">🧠</div>
+  <h1>RAG Simulator</h1>
+  <span class="badge">Retrieval Augmented Generation</span>
+  <span class="badge badge-green" id="doc-count-badge">0 docs</span>
+</header>
+
+<div class="layout">
+
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <h2>📂 Knowledge Base</h2>
+      <div class="doc-list" id="doc-list">
+        <div style="font-size:12px;color:#475569;text-align:center;padding:12px 0;">No documents yet. Add some below.</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h2>+ Add Document</h2>
+      <div class="add-doc-area">
+        <textarea id="new-doc" rows="3" placeholder="Paste or type any text... e.g. 'Our refund policy allows returns within 30 days.'"></textarea>
+        <div class="btn-row">
+          <button class="btn btn-blue" onclick="addDoc()">Add Document</button>
+          <button class="btn btn-outline" onclick="loadSamples()">Load Samples</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="query-area">
+      <h2>🔍 Your Query</h2>
+      <div class="query-input">
+        <input type="text" id="query-input" placeholder="Ask anything about your documents..." />
+      </div>
+      <button class="btn btn-green" onclick="runRAG()" style="width:100%">▶ Run RAG Pipeline</button>
+      <div class="info-row" id="status-line">Add documents and enter a query to simulate the full RAG pipeline.</div>
+    </div>
+  </div>
+
+  <div class="main" id="main">
+    <div class="empty-state">
+      <div class="icon">⚡</div>
+      <p>Add documents to your knowledge base, type a query,<br>and hit <strong>Run RAG Pipeline</strong> to see every step live.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let docs = [];
+let running = false;
+
+const SAMPLE_DOCS = [
+  "Our refund policy allows customers to return any product within 30 days of purchase for a full refund. Enterprise customers get 60 days.",
+  "The quarterly revenue for Q3 2024 was $4.2 million, a 14% increase from Q2. Growth was driven by enterprise deals in the APAC region.",
+  "To set up your account, first verify your email address. Then choose your role: admin, editor, or viewer. Admins can invite team members.",
+  "Customer support SLA guarantees a first response within 4 hours for Priority 1 tickets and 24 hours for standard tickets.",
+  "Our product roadmap for 2025 includes: SSO integration in Q1, API v2 launch in Q2, and mobile app redesign in Q3.",
+  "The team offsite is scheduled for March 22-23 in Bangalore. All team leads must confirm attendance by March 15."
+];
+
+function addDoc() {
+  const ta = document.getElementById('new-doc');
+  const text = ta.value.trim();
+  if (!text) return;
+  docs.push(text);
+  ta.value = '';
+  renderDocList();
+}
+
+function removeDoc(i) {
+  docs.splice(i, 1);
+  renderDocList();
+}
+
+function loadSamples() {
+  docs = [...SAMPLE_DOCS];
+  renderDocList();
+}
+
+function renderDocList() {
+  const el = document.getElementById('doc-list');
+  document.getElementById('doc-count-badge').textContent = docs.length + ' doc' + (docs.length !== 1 ? 's' : '');
+  if (docs.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:#475569;text-align:center;padding:12px 0;">No documents yet.</div>';
+    return;
+  }
+  el.innerHTML = docs.map((d, i) => `
+    <div class="doc-item">
+      <span class="doc-text">${d.length > 80 ? d.slice(0, 80) + '...' : d}</span>
+      <span class="del" onclick="removeDoc(${i})">✕</span>
+    </div>`).join('');
+}
+
+// ── Simple TF-IDF-style embedding using word frequencies ──────────────────────
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+}
+
+function buildVocab(texts) {
+  const vocab = new Set();
+  texts.forEach(t => tokenize(t).forEach(w => vocab.add(w)));
+  return [...vocab].sort();
+}
+
+function tfVector(text, vocab) {
+  const tokens = tokenize(text);
+  const counts = {};
+  tokens.forEach(t => counts[t] = (counts[t] || 0) + 1);
+  return vocab.map(w => (counts[w] || 0) / (tokens.length || 1));
+}
+
+function cosineSim(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+function chunkText(text, size = 40) {
+  const words = text.split(/\s+/);
+  const chunks = [];
+  for (let i = 0; i < words.length; i += size) {
+    chunks.push(words.slice(i, i + size).join(' '));
+  }
+  return chunks.length ? chunks : [text];
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function typeText(el, text, speed = 18) {
+  el.textContent = '';
+  for (let i = 0; i <= text.length; i++) {
+    el.textContent = text.slice(0, i);
+    await sleep(speed);
+  }
+}
+
+async function runRAG() {
+  if (running) return;
+  const query = document.getElementById('query-input').value.trim();
+  if (!query) { document.getElementById('status-line').textContent = '⚠ Please enter a query.'; return; }
+  if (docs.length === 0) { document.getElementById('status-line').textContent = '⚠ Please add at least one document.'; return; }
+  running = true;
+
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  document.getElementById('status-line').textContent = 'Running pipeline...';
+
+  // ── Pipeline nodes ──
+  const pipeSteps = ['Ingestion','Chunking','Embedding','Vector DB','Query','Retrieval','Generation'];
+  main.innerHTML = `
+    <div class="pipeline-vis" id="pipe-vis">
+      ${pipeSteps.map((s,i) => (i>0?'<div class="pipe-conn" id="pc-'+i+'"></div>':'')+`
+        <div class="pipe-node" id="pn-${i}">
+          <div class="pipe-circle">${i+1}</div>
+          <div class="pipe-lbl">${s}</div>
+        </div>`).join('')}
+    </div>`;
+
+  function activateStep(i) {
+    for (let j = 0; j < i; j++) {
+      document.getElementById('pn-'+j).className = 'pipe-node done';
+      if (j > 0) document.getElementById('pc-'+j).className = 'pipe-conn done';
+    }
+    document.getElementById('pn-'+i).className = 'pipe-node active';
+  }
+
+  function addCard(html) {
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    main.appendChild(d.firstElementChild);
+    d.firstElementChild && d.firstElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Step 1: Ingestion ──
+  activateStep(0);
+  await sleep(500);
+  addCard(`<div class="section-card">
+    <h3>📂 <span class="step-badge">Step 1</span> Data Ingestion — ${docs.length} documents loaded</h3>
+    <div class="chunks-grid">
+      ${docs.map((d,i)=>`<div class="chunk-card"><div class="chunk-id">DOC-${String(i+1).padStart(2,'0')}</div><div class="chunk-text">${d.length>100?d.slice(0,100)+'…':d}</div></div>`).join('')}
+    </div>
+  </div>`);
+
+  // ── Step 2: Chunking ──
+  activateStep(1);
+  await sleep(600);
+  const allChunks = [];
+  docs.forEach((doc, di) => {
+    chunkText(doc, 30).forEach((ch, ci) => {
+      allChunks.push({ id: `D${di+1}-C${ci+1}`, text: ch, docIdx: di });
+    });
+  });
+  addCard(`<div class="section-card">
+    <h3>✂️ <span class="step-badge">Step 2</span> Chunking — ${allChunks.length} chunks created</h3>
+    <div class="chunks-grid">
+      ${allChunks.map(c=>`<div class="chunk-card"><div class="chunk-id">${c.id}</div><div class="chunk-text">${c.text}</div></div>`).join('')}
+    </div>
+    <div class="info-row">Each document split into ~30-word chunks for precise retrieval.</div>
+  </div>`);
+
+  // ── Step 3: Embedding ──
+  activateStep(2);
+  await sleep(600);
+  const allTexts = [...allChunks.map(c=>c.text), query];
+  const vocab = buildVocab(allTexts);
+  const chunkVecs = allChunks.map(c => tfVector(c.text, vocab));
+
+  addCard(`<div class="section-card">
+    <h3>🔢 <span class="step-badge">Step 3</span> Embedding — converting chunks to vectors</h3>
+    <div class="embed-grid">
+      ${allChunks.map((c,i)=>{
+        const vec = chunkVecs[i];
+        const topN = 8;
+        const sample = vec.slice(0,topN);
+        const maxV = Math.max(...sample, 0.01);
+        return `<div class="embed-card">
+          <div class="embed-id">${c.id}</div>
+          <div class="embed-bars">${sample.map(v=>`<div class="ebar" style="height:${Math.max(4,Math.round((v/maxV)*26))}px"></div>`).join('')}</div>
+          <div class="embed-vec">[${vec.slice(0,4).map(v=>v.toFixed(3)).join(', ')}...]</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="info-row">Using TF-based vector embedding. Vocab size: ${vocab.length} unique tokens.</div>
+  </div>`);
+
+  // ── Step 4: Vector DB ──
+  activateStep(3);
+  await sleep(600);
+  addCard(`<div class="section-card">
+    <h3>🗄️ <span class="step-badge">Step 4</span> Vector Database — ${allChunks.length} vectors stored</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="background:#1a1f2e;border:1px solid #fcd34d33;border-radius:8px;padding:12px;">
+        <div style="font-size:11px;font-weight:600;color:#fbbf24;margin-bottom:8px;">Vector Index</div>
+        ${allChunks.map((_,i)=>`<div style="height:7px;background:#f59e0b;border-radius:2px;margin-bottom:3px;opacity:${0.3+i*0.05};width:${65+Math.round((i%5)*7)}%"></div>`).join('')}
+        <div style="font-size:11px;color:#fbbf24;margin-top:6px;">${allChunks.length} entries indexed ✓</div>
+      </div>
+      <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:8px;padding:12px;font-size:12px;color:#64748b;">
+        <div style="font-weight:600;color:#e2e8f0;margin-bottom:6px;">Each entry stores:</div>
+        <div style="margin-bottom:3px;">· Chunk text</div>
+        <div style="margin-bottom:3px;">· Embedding vector</div>
+        <div style="margin-bottom:3px;">· Source doc ID</div>
+        <div style="margin-bottom:3px;">· Chunk position</div>
+      </div>
+    </div>
+  </div>`);
+
+  // ── Step 5: Query embedding ──
+  activateStep(4);
+  await sleep(600);
+  const queryVec = tfVector(query, vocab);
+  const qSample = queryVec.slice(0, 8);
+  const qMax = Math.max(...qSample, 0.01);
+  addCard(`<div class="section-card">
+    <h3>💬 <span class="step-badge">Step 5</span> Query Embedding</h3>
+    <div style="background:#1e3a5f;border:1px solid #3b82f6;border-radius:10px;padding:10px 14px;font-size:13px;color:#bfdbfe;margin-bottom:12px;">"${query}"</div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:#64748b;">→ Query vector:</span>
+      <div style="display:flex;gap:2px;align-items:flex-end;height:28px;">
+        ${qSample.map(v=>`<div style="width:10px;background:#60a5fa;border-radius:2px 2px 0 0;height:${Math.max(4,Math.round((v/qMax)*26))}px;opacity:0.8"></div>`).join('')}
+      </div>
+      <span style="font-size:11px;color:#475569;font-family:monospace;">[${queryVec.slice(0,4).map(v=>v.toFixed(3)).join(', ')}...]</span>
+    </div>
+    <div class="info-row">Same embedding model used for query as for chunks — they share the same vector space.</div>
+  </div>`);
+
+  // ── Step 6: Retrieval ──
+  activateStep(5);
+  await sleep(600);
+  const scored = allChunks.map((c, i) => ({
+    ...c,
+    score: cosineSim(queryVec, chunkVecs[i])
+  })).sort((a, b) => b.score - a.score);
+
+  const TOP_K = Math.min(3, scored.length);
+  const retrieved = scored.slice(0, TOP_K).filter(c => c.score > 0);
+  const maxScore = scored[0].score || 1;
+
+  addCard(`<div class="section-card">
+    <h3>🔍 <span class="step-badge">Step 6</span> Retrieval — cosine similarity search</h3>
+    <div class="similarity-list">
+      ${scored.slice(0, Math.min(6, scored.length)).map((c, i) => {
+        const isRet = i < TOP_K && c.score > 0;
+        const pct = Math.round((c.score / maxScore) * 100);
+        return `<div class="sim-row ${isRet ? 'retrieved' : 'rejected'}">
+          <div style="font-size:10px;font-weight:600;color:#475569;min-width:52px;">${c.id}</div>
+          <div class="sim-text">${c.text.length > 70 ? c.text.slice(0,70)+'…' : c.text}</div>
+          <div class="sim-bar-wrap">
+            <div class="sim-bar-bg"><div class="sim-bar-fill" style="width:${pct}%"></div></div>
+          </div>
+          <div class="sim-score">${c.score.toFixed(3)}</div>
+          <span class="sim-tag ${isRet ? 'tag-ret' : 'tag-skip'}">${isRet ? '✓ used' : 'skip'}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="info-row">Top ${retrieved.length} chunks retrieved. Similarity computed using cosine distance on TF vectors.</div>
+  </div>`);
+
+  // ── Step 7: Generation ──
+  activateStep(6);
+  await sleep(700);
+  const contextText = retrieved.length > 0
+    ? retrieved.map((c,i) => `[${c.id}]: ${c.text}`).join('\n')
+    : 'No highly relevant chunks found.';
+
+  addCard(`<div class="section-card">
+    <h3>✨ <span class="step-badge green">Step 7</span> Augmented Generation</h3>
+    <div class="prompt-box"><span class="ph">SYSTEM:</span> You are a helpful assistant. Answer using only the context provided.
+
+<span class="ph">CONTEXT:</span>
+<span class="pc">${contextText}</span>
+
+<span class="ph">QUESTION:</span>
+<span class="pq">${query}</span></div>
+    <div class="answer-box" style="margin-top:14px;">
+      <div class="answer-meta">
+        <span style="background:#14532d;color:#4ade80;padding:2px 8px;border-radius:10px;font-size:10px;">LLM Response</span>
+        <span style="background:#1e3a5f;color:#60a5fa;padding:2px 8px;border-radius:10px;font-size:10px;">grounded in ${retrieved.length} chunk(s)</span>
+      </div>
+      <div class="answer-text" id="answer-text"><span class="typing anim-pulse"></span></div>
+    </div>
+  </div>`);
+
+  await sleep(400);
+  const answerEl = document.getElementById('answer-text');
+  const answer = generateAnswer(query, retrieved);
+  await typeText(answerEl, answer, 14);
+
+  // mark all done
+  for (let i = 0; i < pipeSteps.length; i++) {
+    document.getElementById('pn-'+i).className = 'pipe-node done';
+    if (i > 0) document.getElementById('pc-'+i).className = 'pipe-conn done';
+  }
+  document.getElementById('status-line').textContent = `✓ Pipeline complete — ${allChunks.length} chunks indexed, ${retrieved.length} retrieved.`;
+  running = false;
+}
+
+function generateAnswer(query, retrieved) {
+  if (retrieved.length === 0) {
+    return "I couldn't find relevant information in the knowledge base to answer your question. Try adding documents that contain information related to your query.";
+  }
+
+  const q = query.toLowerCase();
+  const context = retrieved.map(r => r.text).join(' ');
+
+  // Build a contextual answer by using the retrieved text
+  const sentences = context.match(/[^.!?]+[.!?]+/g) || [context];
+  const relevant = sentences.filter(s => {
+    const sw = tokenize(s);
+    const qw = tokenize(q);
+    return qw.some(w => w.length > 3 && sw.includes(w));
+  });
+
+  if (relevant.length > 0) {
+    const ans = relevant.slice(0, 3).join(' ').trim();
+    return `Based on the retrieved context: ${ans}`;
+  }
+
+  return `Based on the available documents: ${sentences.slice(0, 2).join(' ').trim()}`;
+}
+
+document.getElementById('query-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runRAG();
+});
+
+document.getElementById('new-doc').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) addDoc();
+});
+</script>
+</body>
+</html>
